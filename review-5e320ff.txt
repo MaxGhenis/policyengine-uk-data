@@ -1,0 +1,74 @@
+VERDICT: APPROVE
+
+Delta review of policyengine-uk-data#524, 61f93ba -> 5e320ff (3 files, +6/-1).
+No blocking findings. One nonblocking note below.
+
+1. "Everyone aged 20+ is a claimant or partner" holds for base and enhanced FRS
+   Yes. This follows from the survey's definitions, which the code reads
+   faithfully, and the built data confirms it.
+   - create_frs sets age = AGE80 + AGE after concatenating the adult and
+     child tables with fillna(0). Child-table rows are the only rows with
+     the role False (helper = adult-table membership). FRS defines a
+     dependent child as under 16, or 16-19 in non-advanced education, so
+     child-table ages are at most 19, as the new test comment says.
+   - Enhanced FRS: every later row copies a base FRS row and keeps its age
+     and role.
+     - SPI-synthetic copy: dataset.copy, then subsample, then
+       impute_over_incomes, which writes only the listed income outputs.
+       Age is one of its PREDICTORS. Next comes impute_frs_only_variables,
+       where age is a STAGE2_DEMOGRAPHIC_PREDICTOR, not an output.
+     - CGT band donors: whole person rows, with only capital_gains rewritten.
+     - clone_and_assign: person.copy per clone, with IDs remapped.
+     - uprate_dataset: neither age nor any role column appears in
+       uprating_factors.csv.
+     - create_spi records are not stacked into the enhanced build; SPI is
+       only QRF training data.
+   - Built files in the build worktree (aggregates only):
+     - frs_2024_25.h5: 34,966 people, 27,307 aged 20+. 0 of those lack the
+       role. The oldest person without the role is 19. 0 benefit units fall
+       outside 1-2 role holders.
+     - enhanced_frs_2024_25.h5: 113,567 people, 88,704 aged 20+. 0 of those
+       lack the role. The oldest person without the role is 19. 43,239
+       people are in SPI-synthetic households, and 0 of them are aged 20+
+       without the role.
+
+2. The smoke-test assertion exercises create_frs's assignment
+   Yes. I mutated create_frs's code object in place and ran the test.
+   - Original code: passes.
+   - Column not set: fails at the issubset assertion (line 541).
+   - All False: fails at the new iloc[0] assertion (line 554).
+   - Negated helper result: fails at line 554.
+   - Child-table IDs passed as the adults: the helper raises ValueError.
+   - All True: survives, as expected with a single-adult fixture. The
+     helper's property tests and the built-data test cover values.
+   The new built-data assertion also catches round 1's dropped-partner
+   failure mode. A heads-only derivation would leave 8,862 partners aged
+   20+ unflagged in base and 28,809 in enhanced.
+
+3. The changelog wording is accurate
+   "Refuses to combine a person table that has it with one that does not"
+   matches stack.py, which raises only on asymmetric presence. It also
+   matches test_stacking_refuses_a_table_without_roles in both orders.
+   Round 1 verified the rest of the fragment, and it is unchanged.
+
+Nonblocking note
+- [LOW] Round 1's suggested childless-couple integration case was not added.
+  The 20+ assertion covers it except for partners aged 16-19: 2 in base and
+  8 in enhanced. Losing only those would go undetected. That gap is
+  negligible, and no change is needed.
+
+What I ran
+- Workspace detached at 5e320ff, using the mut checkout's .venv with
+  PYTHONPATH=workspace (the imports resolve to the workspace).
+  - smoke test (-k create_frs_smoke): 1 passed.
+  - test_claimant_or_partner.py: 11 passed, 2 skipped. The skips are the
+    built-dataset cases, because storage is absent here.
+- Build worktree (HEAD 5e320ff; the test, conftest and frs.py files are
+  identical to 5e320ff): the brief's command plus
+  -p no:cacheprovider --tb=no -rs, which gave 3 passed (exit 0).
+- /private/tmp/ukdata-524-r2/mutants.py: the mutant run above.
+- /private/tmp/ukdata-524-r2/aggregates.py and an inline partner count:
+  aggregates only, with no records printed.
+- git diff --check: clean. ruff format --check on both test files: clean.
+- I did not write to the caller's mut checkout, so it remains at 61f93ba.
+  There was no dataset build, no full suite and no calibration.

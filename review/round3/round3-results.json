@@ -1,0 +1,727 @@
+{
+ "frs_section": {
+  "se_main_job": {
+   "adults": 2110,
+   "weighted_m": 4.1993,
+   "households_ge_10": true
+  },
+  "se_positive": {
+   "adults": 1893,
+   "weighted_m": 3.8208,
+   "households_ge_10": true
+  },
+  "se_zero": {
+   "adults": 176,
+   "weighted_m": 0.311,
+   "households_ge_10": true
+  },
+  "se_negative": {
+   "adults": 41,
+   "weighted_m": 0.0675,
+   "households_ge_10": true
+  },
+  "se_zero_or_negative": {
+   "adults": 217,
+   "weighted_m": 0.3785,
+   "households_ge_10": true
+  },
+  "side_trade_profit": {
+   "adults": 227,
+   "weighted_m": 0.4862,
+   "households_ge_10": true
+  },
+  "side_trade_above_pay": {
+   "adults": 65,
+   "weighted_m": 0.1417,
+   "households_ge_10": true
+  },
+  "side_trade_not_above_pay": {
+   "adults": 162,
+   "weighted_m": 0.3445,
+   "households_ge_10": true
+  },
+  "se_main_job_seincam2_missing": 0,
+  "side_trade_above_pay_all_employees": true,
+  "profit1_eq_0": {
+   "weighted_share_pct": 20.72,
+   "unweighted_share_pct": 19.32,
+   "numerator_households_ge_10": true,
+   "complement_households_ge_10": true
+  },
+  "seincamt_eq_0": {
+   "weighted_share_pct": 21.18,
+   "unweighted_share_pct": 19.32,
+   "numerator_households_ge_10": true,
+   "complement_households_ge_10": true
+  },
+  "side_trade_negative_seincam2_any": true
+ },
+ "spi_copy_shares": {
+  "branch_build": {
+   "original_ids_are_sernums": true,
+   "se_status_rows_all_frs_adults": true,
+   "all_spi_rows": {
+    "se_status": {
+     "share_with_profit_pct": 6.694,
+     "numerator_households_ge_10": true,
+     "complement_households_ge_10": true
+    },
+    "other_all_ages": {
+     "share_with_profit_pct": 4.315,
+     "numerator_households_ge_10": true,
+     "complement_households_ge_10": true
+    },
+    "other_age_16_plus": {
+     "share_with_profit_pct": 5.255,
+     "numerator_households_ge_10": true,
+     "complement_households_ge_10": true
+    },
+    "other_frs_adult_rows": {
+     "share_with_profit_pct": 5.39,
+     "numerator_households_ge_10": true,
+     "complement_households_ge_10": true
+    }
+   },
+   "spi_rows_excl_cg_clones": {
+    "se_status": {
+     "share_with_profit_pct": 6.717,
+     "numerator_households_ge_10": true,
+     "complement_households_ge_10": true
+    },
+    "other_all_ages": {
+     "share_with_profit_pct": 4.307,
+     "numerator_households_ge_10": true,
+     "complement_households_ge_10": true
+    },
+    "other_age_16_plus": {
+     "share_with_profit_pct": 5.244,
+     "numerator_households_ge_10": true,
+     "complement_households_ge_10": true
+    },
+    "other_frs_adult_rows": {
+     "share_with_profit_pct": 5.378,
+     "numerator_households_ge_10": true,
+     "complement_households_ge_10": true
+    }
+   }
+  },
+  "snapshot_efrs_copy": {
+   "original_ids_are_sernums": true,
+   "se_status_rows_all_frs_adults": true,
+   "all_spi_rows": {
+    "se_status": {
+     "share_with_profit_pct": 6.845,
+     "numerator_households_ge_10": true,
+     "complement_households_ge_10": true
+    },
+    "other_all_ages": {
+     "share_with_profit_pct": 4.424,
+     "numerator_households_ge_10": true,
+     "complement_households_ge_10": true
+    },
+    "other_age_16_plus": {
+     "share_with_profit_pct": 5.4,
+     "numerator_households_ge_10": true,
+     "complement_households_ge_10": true
+    },
+    "other_frs_adult_rows": {
+     "share_with_profit_pct": 5.54,
+     "numerator_households_ge_10": true,
+     "complement_households_ge_10": true
+    }
+   },
+   "spi_rows_excl_cg_clones": {
+    "se_status": {
+     "share_with_profit_pct": 6.792,
+     "numerator_households_ge_10": true,
+     "complement_households_ge_10": true
+    },
+    "other_all_ages": {
+     "share_with_profit_pct": 4.411,
+     "numerator_households_ge_10": true,
+     "complement_households_ge_10": true
+    },
+    "other_age_16_plus": {
+     "share_with_profit_pct": 5.385,
+     "numerator_households_ge_10": true,
+     "complement_households_ge_10": true
+    },
+    "other_frs_adult_rows": {
+     "share_with_profit_pct": 5.525,
+     "numerator_households_ge_10": true,
+     "complement_households_ge_10": true
+    }
+   }
+  }
+ },
+ "impact": {
+  "2025": {
+   "pr_change_bn": -0.4756,
+   "pr_cell_ge_10": true,
+   "status_change_bn": -0.4086,
+   "status_cell_ge_10": true,
+   "pr_vs_status_difference_ge_10": true,
+   "pr_vs_literal_difference_ge_10": false,
+   "pc_hb_ctr_unchanged_pr_status": true,
+   "hh_net_minus_uc_change_abs_gbp_m": 0.0,
+   "newly_floored_all_se_status_zero_profit": true,
+   "newly_flagged_are_se_status_zero_profit": true,
+   "unflagged_are_side_trades_profit_not_above_pay": true,
+   "spi": {
+    "net_bn": -0.3199,
+    "newly_floored_unit_fall": {
+     "exists": true,
+     "ge_10": true
+    },
+    "newly_floored_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "newly_and_removed_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "newly_and_removed_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "floor_removed_only_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "floor_removed_only_unit_rise": {
+     "exists": true,
+     "ge_10": false
+    },
+    "no_floor_change_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "no_floor_change_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "all_falls_in_newly_floored_units": true,
+    "newly_floored_units_fall_at_least_net_fall": true,
+    "changes_outside_newly_floored_units_are_rises_only": true
+   },
+   "frs": {
+    "net_bn": -0.1557,
+    "newly_floored_unit_fall": {
+     "exists": true,
+     "ge_10": true
+    },
+    "newly_floored_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "newly_and_removed_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "newly_and_removed_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "floor_removed_only_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "floor_removed_only_unit_rise": {
+     "exists": true,
+     "ge_10": false
+    },
+    "no_floor_change_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "no_floor_change_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "all_falls_in_newly_floored_units": true,
+    "newly_floored_units_fall_at_least_net_fall": true,
+    "changes_outside_newly_floored_units_are_rises_only": true
+   }
+  },
+  "2026": {
+   "pr_change_bn": -0.4983,
+   "pr_cell_ge_10": true,
+   "status_change_bn": -0.4268,
+   "status_cell_ge_10": true,
+   "pr_vs_status_difference_ge_10": true,
+   "pr_vs_literal_difference_ge_10": false,
+   "pc_hb_ctr_unchanged_pr_status": true,
+   "hh_net_minus_uc_change_abs_gbp_m": 0.0,
+   "newly_floored_all_se_status_zero_profit": true,
+   "newly_flagged_are_se_status_zero_profit": true,
+   "unflagged_are_side_trades_profit_not_above_pay": true,
+   "spi": {
+    "net_bn": -0.3374,
+    "newly_floored_unit_fall": {
+     "exists": true,
+     "ge_10": true
+    },
+    "newly_floored_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "newly_and_removed_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "newly_and_removed_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "floor_removed_only_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "floor_removed_only_unit_rise": {
+     "exists": true,
+     "ge_10": false
+    },
+    "no_floor_change_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "no_floor_change_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "all_falls_in_newly_floored_units": true,
+    "newly_floored_units_fall_at_least_net_fall": true,
+    "changes_outside_newly_floored_units_are_rises_only": true
+   },
+   "frs": {
+    "net_bn": -0.1608,
+    "newly_floored_unit_fall": {
+     "exists": true,
+     "ge_10": true
+    },
+    "newly_floored_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "newly_and_removed_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "newly_and_removed_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "floor_removed_only_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "floor_removed_only_unit_rise": {
+     "exists": true,
+     "ge_10": false
+    },
+    "no_floor_change_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "no_floor_change_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "all_falls_in_newly_floored_units": true,
+    "newly_floored_units_fall_at_least_net_fall": true,
+    "changes_outside_newly_floored_units_are_rises_only": true
+   },
+   "headline": {
+    "uc_total_bn": [
+     78.3737,
+     77.8755
+    ],
+    "gainful_m": [
+     4.4502,
+     5.7147
+    ],
+    "floor_m": [
+     3.5941,
+     4.5667
+    ],
+    "floor_in_uc_units_k": [
+     301.954,
+     348.816
+    ],
+    "uc_falling_units_k": 96.696,
+    "net_caseload_change_k": -36.803
+   },
+   "support": {
+    "uc_total_cells_ge_10": true,
+    "gainful_cells_ge_10": true,
+    "gainful_difference_set_ge_10": true,
+    "floor_cells_ge_10": true,
+    "floor_difference_set_ge_10": true,
+    "floor_in_uc_cells_ge_10": true,
+    "floor_in_uc_difference_set_ge_10": true,
+    "falling_units_ge_10": true,
+    "caseload_change_set_ge_10": true,
+    "rising_units_under_10": true,
+    "changed_without_fall_under_10": true,
+    "poverty_bhc_ahc_changed_people_under_10": true
+   }
+  },
+  "2027": {
+   "pr_change_bn": -0.496,
+   "pr_cell_ge_10": true,
+   "status_change_bn": -0.4274,
+   "status_cell_ge_10": true,
+   "pr_vs_status_difference_ge_10": true,
+   "pr_vs_literal_difference_ge_10": false,
+   "pc_hb_ctr_unchanged_pr_status": true,
+   "hh_net_minus_uc_change_abs_gbp_m": 0.0,
+   "newly_floored_all_se_status_zero_profit": true,
+   "newly_flagged_are_se_status_zero_profit": true,
+   "unflagged_are_side_trades_profit_not_above_pay": true,
+   "spi": {
+    "net_bn": -0.338,
+    "newly_floored_unit_fall": {
+     "exists": true,
+     "ge_10": true
+    },
+    "newly_floored_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "newly_and_removed_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "newly_and_removed_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "floor_removed_only_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "floor_removed_only_unit_rise": {
+     "exists": true,
+     "ge_10": false
+    },
+    "no_floor_change_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "no_floor_change_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "all_falls_in_newly_floored_units": true,
+    "newly_floored_units_fall_at_least_net_fall": true,
+    "changes_outside_newly_floored_units_are_rises_only": true
+   },
+   "frs": {
+    "net_bn": -0.158,
+    "newly_floored_unit_fall": {
+     "exists": true,
+     "ge_10": true
+    },
+    "newly_floored_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "newly_and_removed_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "newly_and_removed_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "floor_removed_only_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "floor_removed_only_unit_rise": {
+     "exists": true,
+     "ge_10": false
+    },
+    "no_floor_change_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "no_floor_change_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "all_falls_in_newly_floored_units": true,
+    "newly_floored_units_fall_at_least_net_fall": true,
+    "changes_outside_newly_floored_units_are_rises_only": true
+   }
+  },
+  "2028": {
+   "pr_change_bn": -0.4933,
+   "pr_cell_ge_10": true,
+   "status_change_bn": -0.4278,
+   "status_cell_ge_10": true,
+   "pr_vs_status_difference_ge_10": true,
+   "pr_vs_literal_difference_ge_10": false,
+   "pc_hb_ctr_unchanged_pr_status": true,
+   "hh_net_minus_uc_change_abs_gbp_m": 0.0,
+   "newly_floored_all_se_status_zero_profit": true,
+   "newly_flagged_are_se_status_zero_profit": true,
+   "unflagged_are_side_trades_profit_not_above_pay": true,
+   "spi": {
+    "net_bn": -0.3384,
+    "newly_floored_unit_fall": {
+     "exists": true,
+     "ge_10": true
+    },
+    "newly_floored_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "newly_and_removed_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "newly_and_removed_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "floor_removed_only_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "floor_removed_only_unit_rise": {
+     "exists": true,
+     "ge_10": false
+    },
+    "no_floor_change_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "no_floor_change_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "all_falls_in_newly_floored_units": true,
+    "newly_floored_units_fall_at_least_net_fall": true,
+    "changes_outside_newly_floored_units_are_rises_only": true
+   },
+   "frs": {
+    "net_bn": -0.155,
+    "newly_floored_unit_fall": {
+     "exists": true,
+     "ge_10": true
+    },
+    "newly_floored_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "newly_and_removed_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "newly_and_removed_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "floor_removed_only_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "floor_removed_only_unit_rise": {
+     "exists": true,
+     "ge_10": false
+    },
+    "no_floor_change_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "no_floor_change_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "all_falls_in_newly_floored_units": true,
+    "newly_floored_units_fall_at_least_net_fall": true,
+    "changes_outside_newly_floored_units_are_rises_only": true
+   }
+  },
+  "2029": {
+   "pr_change_bn": -0.4906,
+   "pr_cell_ge_10": true,
+   "status_change_bn": -0.4275,
+   "status_cell_ge_10": true,
+   "pr_vs_status_difference_ge_10": true,
+   "pr_vs_literal_difference_ge_10": false,
+   "pc_hb_ctr_unchanged_pr_status": true,
+   "hh_net_minus_uc_change_abs_gbp_m": 0.0,
+   "newly_floored_all_se_status_zero_profit": true,
+   "newly_flagged_are_se_status_zero_profit": true,
+   "unflagged_are_side_trades_profit_not_above_pay": true,
+   "spi": {
+    "net_bn": -0.3386,
+    "newly_floored_unit_fall": {
+     "exists": true,
+     "ge_10": true
+    },
+    "newly_floored_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "newly_and_removed_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "newly_and_removed_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "floor_removed_only_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "floor_removed_only_unit_rise": {
+     "exists": true,
+     "ge_10": false
+    },
+    "no_floor_change_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "no_floor_change_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "all_falls_in_newly_floored_units": true,
+    "newly_floored_units_fall_at_least_net_fall": true,
+    "changes_outside_newly_floored_units_are_rises_only": true
+   },
+   "frs": {
+    "net_bn": -0.152,
+    "newly_floored_unit_fall": {
+     "exists": true,
+     "ge_10": true
+    },
+    "newly_floored_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "newly_and_removed_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "newly_and_removed_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "floor_removed_only_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "floor_removed_only_unit_rise": {
+     "exists": true,
+     "ge_10": false
+    },
+    "no_floor_change_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "no_floor_change_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "all_falls_in_newly_floored_units": true,
+    "newly_floored_units_fall_at_least_net_fall": true,
+    "changes_outside_newly_floored_units_are_rises_only": true
+   }
+  },
+  "2030": {
+   "pr_change_bn": -0.4861,
+   "pr_cell_ge_10": true,
+   "status_change_bn": -0.4263,
+   "status_cell_ge_10": true,
+   "pr_vs_status_difference_ge_10": true,
+   "pr_vs_literal_difference_ge_10": false,
+   "pc_hb_ctr_unchanged_pr_status": true,
+   "hh_net_minus_uc_change_abs_gbp_m": 0.0,
+   "newly_floored_all_se_status_zero_profit": true,
+   "newly_flagged_are_se_status_zero_profit": true,
+   "unflagged_are_side_trades_profit_not_above_pay": true,
+   "spi": {
+    "net_bn": -0.3372,
+    "newly_floored_unit_fall": {
+     "exists": true,
+     "ge_10": true
+    },
+    "newly_floored_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "newly_and_removed_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "newly_and_removed_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "floor_removed_only_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "floor_removed_only_unit_rise": {
+     "exists": true,
+     "ge_10": false
+    },
+    "no_floor_change_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "no_floor_change_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "all_falls_in_newly_floored_units": true,
+    "newly_floored_units_fall_at_least_net_fall": true,
+    "changes_outside_newly_floored_units_are_rises_only": true
+   },
+   "frs": {
+    "net_bn": -0.149,
+    "newly_floored_unit_fall": {
+     "exists": true,
+     "ge_10": true
+    },
+    "newly_floored_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "newly_and_removed_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "newly_and_removed_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "floor_removed_only_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "floor_removed_only_unit_rise": {
+     "exists": true,
+     "ge_10": false
+    },
+    "no_floor_change_unit_fall": {
+     "exists": false,
+     "ge_10": false
+    },
+    "no_floor_change_unit_rise": {
+     "exists": false,
+     "ge_10": false
+    },
+    "all_falls_in_newly_floored_units": true,
+    "newly_floored_units_fall_at_least_net_fall": true,
+    "changes_outside_newly_floored_units_are_rises_only": true
+   }
+  }
+ }
+}

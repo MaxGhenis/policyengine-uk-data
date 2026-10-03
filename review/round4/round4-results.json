@@ -1,0 +1,177 @@
+{
+ "side_trades": {
+  "profit_adults": 227,
+  "profit_weighted_m": 0.4862,
+  "profit_households_ge_10": true,
+  "loss_group_exists": true,
+  "nonzero_weighted_rounds_to_same_2dp": true,
+  "above_pay_adults": 65,
+  "above_pay_weighted_m": 0.1417,
+  "above_pay_subset_of_profit": true,
+  "above_pay_all_employees": true,
+  "above_pay_households_ge_10": true,
+  "profit_not_above_households_ge_10": true
+ },
+ "mapping": {
+  "frs_ids_are_sernums": true,
+  "all_sources_are_frs_sernums": true,
+  "cg_flag_matches_offset": true,
+  "spi_flag_matches_offset": true,
+  "household_sizes_match_source": true
+ },
+ "spi_shares": {
+  "copy_rows|16_plus|se_status": {
+   "rows_share_pct": 6.694,
+   "weighted_share_pct": 8.627,
+   "numerator_households_ge_10": true,
+   "complement_households_ge_10": true
+  },
+  "copy_rows|16_plus|other": {
+   "rows_share_pct": 5.255,
+   "weighted_share_pct": 7.144,
+   "numerator_households_ge_10": true,
+   "complement_households_ge_10": true
+  },
+  "copy_rows|18_plus|se_status": {
+   "rows_share_pct": 6.699,
+   "weighted_share_pct": 8.632,
+   "numerator_households_ge_10": true,
+   "complement_households_ge_10": true
+  },
+  "copy_rows|18_plus|other": {
+   "rows_share_pct": 5.378,
+   "weighted_share_pct": 7.329,
+   "numerator_households_ge_10": true,
+   "complement_households_ge_10": true
+  },
+  "copy_rows|all_ages|se_status": {
+   "rows_share_pct": 6.694,
+   "weighted_share_pct": 8.627,
+   "numerator_households_ge_10": true,
+   "complement_households_ge_10": true
+  },
+  "copy_rows|all_ages|other": {
+   "rows_share_pct": 4.315,
+   "weighted_share_pct": 5.831,
+   "numerator_households_ge_10": true,
+   "complement_households_ge_10": true
+  },
+  "copy_rows_excl_cg_clone|16_plus|se_status": {
+   "rows_share_pct": 6.702,
+   "weighted_share_pct": 9.597,
+   "numerator_households_ge_10": true,
+   "complement_households_ge_10": true
+  },
+  "copy_rows_excl_cg_clone|16_plus|other": {
+   "rows_share_pct": 5.252,
+   "weighted_share_pct": 7.357,
+   "numerator_households_ge_10": true,
+   "complement_households_ge_10": true
+  },
+  "copy_rows_excl_cg_clone|18_plus|se_status": {
+   "rows_share_pct": 6.707,
+   "weighted_share_pct": 9.604,
+   "numerator_households_ge_10": true,
+   "complement_households_ge_10": true
+  },
+  "copy_rows_excl_cg_clone|18_plus|other": {
+   "rows_share_pct": 5.375,
+   "weighted_share_pct": 7.544,
+   "numerator_households_ge_10": true,
+   "complement_households_ge_10": true
+  },
+  "copy_rows_excl_cg_clone|all_ages|se_status": {
+   "rows_share_pct": 6.702,
+   "weighted_share_pct": 9.597,
+   "numerator_households_ge_10": true,
+   "complement_households_ge_10": true
+  },
+  "copy_rows_excl_cg_clone|all_ages|other": {
+   "rows_share_pct": 4.312,
+   "weighted_share_pct": 5.965,
+   "numerator_households_ge_10": true,
+   "complement_households_ge_10": true
+  }
+ },
+ "se_status_copy_rows_all_16_plus": true,
+ "impact_spi": {
+  "2025": {
+   "spi_net_bn": -0.32,
+   "spi_rises_exist": true,
+   "spi_rises_under_10_households": true,
+   "spi_rises_smaller_than_falls": true,
+   "spi_gross_fall_exceeds_net": true,
+   "spi_falls_ge_10_households": true,
+   "spi_all_falls_in_newly_floored_units": true,
+   "spi_rises_all_outside_newly_floored_units": true,
+   "spi_rises_all_in_floor_removed_units": true,
+   "spi_tiny_changes_are_not_falls_outside_new": true,
+   "spi_tiny_changes_under_1gbp": true
+  },
+  "2026": {
+   "spi_net_bn": -0.337,
+   "spi_rises_exist": true,
+   "spi_rises_under_10_households": true,
+   "spi_rises_smaller_than_falls": true,
+   "spi_gross_fall_exceeds_net": true,
+   "spi_falls_ge_10_households": true,
+   "spi_all_falls_in_newly_floored_units": true,
+   "spi_rises_all_outside_newly_floored_units": true,
+   "spi_rises_all_in_floor_removed_units": true,
+   "spi_tiny_changes_are_not_falls_outside_new": true,
+   "spi_tiny_changes_under_1gbp": true
+  },
+  "2027": {
+   "spi_net_bn": -0.338,
+   "spi_rises_exist": true,
+   "spi_rises_under_10_households": true,
+   "spi_rises_smaller_than_falls": true,
+   "spi_gross_fall_exceeds_net": true,
+   "spi_falls_ge_10_households": true,
+   "spi_all_falls_in_newly_floored_units": true,
+   "spi_rises_all_outside_newly_floored_units": true,
+   "spi_rises_all_in_floor_removed_units": true,
+   "spi_tiny_changes_are_not_falls_outside_new": true,
+   "spi_tiny_changes_under_1gbp": true
+  },
+  "2028": {
+   "spi_net_bn": -0.338,
+   "spi_rises_exist": true,
+   "spi_rises_under_10_households": true,
+   "spi_rises_smaller_than_falls": true,
+   "spi_gross_fall_exceeds_net": true,
+   "spi_falls_ge_10_households": true,
+   "spi_all_falls_in_newly_floored_units": true,
+   "spi_rises_all_outside_newly_floored_units": true,
+   "spi_rises_all_in_floor_removed_units": true,
+   "spi_tiny_changes_are_not_falls_outside_new": true,
+   "spi_tiny_changes_under_1gbp": true
+  },
+  "2029": {
+   "spi_net_bn": -0.339,
+   "spi_rises_exist": true,
+   "spi_rises_under_10_households": true,
+   "spi_rises_smaller_than_falls": true,
+   "spi_gross_fall_exceeds_net": true,
+   "spi_falls_ge_10_households": true,
+   "spi_all_falls_in_newly_floored_units": true,
+   "spi_rises_all_outside_newly_floored_units": true,
+   "spi_rises_all_in_floor_removed_units": true,
+   "spi_tiny_changes_are_not_falls_outside_new": true,
+   "spi_tiny_changes_under_1gbp": true
+  },
+  "2030": {
+   "spi_net_bn": -0.337,
+   "spi_rises_exist": true,
+   "spi_rises_under_10_households": true,
+   "spi_rises_smaller_than_falls": true,
+   "spi_gross_fall_exceeds_net": true,
+   "spi_falls_ge_10_households": true,
+   "spi_all_falls_in_newly_floored_units": true,
+   "spi_rises_all_outside_newly_floored_units": true,
+   "spi_rises_all_in_floor_removed_units": true,
+   "spi_tiny_changes_are_not_falls_outside_new": true,
+   "spi_tiny_changes_under_1gbp": true
+  }
+ }
+}

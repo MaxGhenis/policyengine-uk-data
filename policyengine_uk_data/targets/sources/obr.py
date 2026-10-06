@@ -11,12 +11,13 @@ Sources:
 
 import io
 import logging
+import time
 from functools import lru_cache
 
 import openpyxl
 import requests
 
-from policyengine_uk_data.targets.schema import Target, Unit
+from policyengine_uk_data.targets.schema import GREAT_BRITAIN, Target, Unit
 from policyengine_uk_data.targets.sources._common import (
     HEADERS,
     load_config,
@@ -37,12 +38,83 @@ _FY_COL_TO_YEAR = {
 }
 
 
-@lru_cache(maxsize=1)
+# OBR occasionally rate-limits CI runners (HTTP 429) or returns transient 5xx
+# errors. Retry with exponential backoff so a single throttled response does not
+# drop the whole OBR target set and red an unrelated build.
+_DOWNLOAD_MAX_ATTEMPTS = 4
+_DOWNLOAD_RETRY_STATUSES = {429, 500, 502, 503, 504}
+
+
+# obr.uk serves 403 Forbidden to GitHub Actions runner IPs (observed on the
+# 2026-07-21 push builds: every attempt 403'd while the same URLs work from
+# residential connections). A 403 is not retryable, and losing the workbook
+# silently drops 28 OBR targets and calibrates a degraded dataset. The EFO
+# workbooks for the vintage pinned in sources.yaml are therefore committed
+# under storage/obr_efo/ — following the committed-not-fetched precedent of
+# capital_gains_size_distribution_hmrc.csv and ons_demographics.py — and
+# used as a fallback whenever the download fails. Update them together with
+# the sources.yaml URLs when a new EFO vintage is adopted.
+_EFO_FALLBACKS = {
+    "receipts": "efo_receipts.xlsx",
+    "expenditure": "efo_expenditure.xlsx",
+}
+
+
+def _fallback_workbook(url: str) -> openpyxl.Workbook | None:
+    from policyengine_uk_data.storage import STORAGE_FOLDER
+
+    for slug, filename in _EFO_FALLBACKS.items():
+        if slug in url:
+            path = STORAGE_FOLDER / "obr_efo" / filename
+            if path.exists():
+                return openpyxl.load_workbook(path, data_only=False)
+    return None
+
+
+@lru_cache(maxsize=2)
 def _download_workbook(url: str) -> openpyxl.Workbook:
-    """Download an xlsx from OBR and return an openpyxl workbook."""
-    r = requests.get(url, headers=HEADERS, allow_redirects=True, timeout=60)
-    r.raise_for_status()
-    return openpyxl.load_workbook(io.BytesIO(r.content), data_only=False)
+    """Download an xlsx from OBR and return an openpyxl workbook.
+
+    Retries transient HTTP errors (429/5xx) and connection failures with
+    exponential backoff, honouring a numeric Retry-After header when
+    present. Falls back to the committed workbook in storage/obr_efo/ when
+    the download ultimately fails (obr.uk 403s CI runner IPs).
+    """
+    last_error: Exception | None = None
+    for attempt in range(_DOWNLOAD_MAX_ATTEMPTS):
+        wait = 2**attempt
+        try:
+            r = requests.get(url, headers=HEADERS, allow_redirects=True, timeout=60)
+        except requests.RequestException as e:
+            last_error = e  # connection/timeout — retryable
+        else:
+            if r.status_code < 400:
+                return openpyxl.load_workbook(io.BytesIO(r.content), data_only=False)
+            last_error = requests.HTTPError(
+                f"{r.status_code} for url: {url}", response=r
+            )
+            if r.status_code not in _DOWNLOAD_RETRY_STATUSES:
+                break  # 403 and other permanent errors: don't burn retries
+            retry_after = r.headers.get("Retry-After", "")
+            if retry_after.isdigit():
+                wait = int(retry_after)
+        if attempt < _DOWNLOAD_MAX_ATTEMPTS - 1:
+            logger.warning(
+                "OBR download %s failed (%s); retrying in %ss",
+                url,
+                last_error,
+                wait,
+            )
+            time.sleep(wait)
+    fallback = _fallback_workbook(url)
+    if fallback is not None:
+        logger.warning(
+            "OBR download %s failed (%s); using committed workbook fallback",
+            url,
+            last_error,
+        )
+        return fallback
+    raise last_error
 
 
 def _read_row_values(ws, row_num: int, col_letters: list[str]) -> dict[int, float]:
@@ -54,6 +126,44 @@ def _read_row_values(ws, row_num: int, col_letters: list[str]) -> dict[int, floa
         if val is not None and isinstance(val, (int, float)):
             result[_FY_COL_TO_YEAR[col]] = float(val) * 1e9
     return result
+
+
+def _find_receipts_sheet(wb):
+    """Return the current-receipts worksheet, located by title.
+
+    EFO releases renumber their tables between vintages. Referring to a sheet by
+    number means a renumbering turns every lookup on it into a silent no-op, so
+    the sheet is matched on its title instead.
+
+    Several sheets mention "receipts" (e.g. "Other receipts", "Property
+    transactions taxes: Receipts by sector"), so the match is on the full
+    "current receipts" phrase. If a future vintage makes that ambiguous, prefer
+    the cash-basis sheet and otherwise raise rather than silently taking
+    whichever happens to come first.
+    """
+    matches = [
+        name
+        for name in wb.sheetnames
+        if (title := wb[name].cell(row=2, column=2).value)
+        and "current receipts" in str(title).lower()
+    ]
+    if not matches:
+        raise ValueError(
+            f"OBR receipts: no worksheet titled 'Current receipts' found in {wb.sheetnames}"
+        )
+    if len(matches) == 1:
+        return wb[matches[0]]
+    cash = [
+        name
+        for name in matches
+        if "cash" in str(wb[name].cell(row=2, column=2).value).lower()
+    ]
+    if len(cash) == 1:
+        return wb[cash[0]]
+    raise ValueError(
+        "OBR receipts: could not identify a single current-receipts sheet; "
+        f"candidates were {matches}. Refusing to guess."
+    )
 
 
 def _find_row(ws, label: str, col: str = "B", max_row: int = 80) -> int:
@@ -69,8 +179,9 @@ def _parse_receipts(wb: openpyxl.Workbook) -> list[Target]:
     """Parse tax receipts from the OBR EFO.
 
     Income tax uses Table 3.4 (accrued basis) for consistency with
-    the standard fiscal forecasting convention. Other receipts use
-    Table 3.9 (cash basis) since they only appear there.
+    the standard fiscal forecasting convention. Other receipts use the
+    current-receipts table (cash basis) since they only appear there; that
+    table is located by title because EFO vintages renumber the sheets.
     """
     config = load_config()
     vintage = config["obr"]["vintage"]
@@ -122,8 +233,11 @@ def _parse_receipts(wb: openpyxl.Workbook) -> list[Target]:
     except ValueError:
         logger.warning("OBR receipts: income tax row not found in 3.4")
 
-    # Other receipts from Table 3.9 (cash basis)
-    ws39 = wb["3.9"]
+    # Other receipts from the current-receipts table (cash basis). The sheet is
+    # located by title rather than number: EFO vintages renumber the tables, and
+    # in March 2026 current receipts moved to 3.8 while 3.9 became the APD
+    # forecast, which silently yielded no targets at all.
+    ws39 = _find_receipts_sheet(wb)
     cash_rows = {
         "ni": ("National insurance contributions", "ni_employee"),
         "vat": ("Value added tax", "vat"),
@@ -132,11 +246,13 @@ def _parse_receipts(wb: openpyxl.Workbook) -> list[Target]:
         "sdlt": ("Stamp duty land tax", "stamp_duty_land_tax"),
     }
 
+    recovered: list[str] = []
     for name, (label, variable) in cash_rows.items():
         try:
             row_num = _find_row(ws39, label, col="B", max_row=80)
             values = read_39(ws39, row_num)
             if values:
+                recovered.append(label)
                 targets.append(
                     Target(
                         name=f"obr/{name}",
@@ -150,6 +266,17 @@ def _parse_receipts(wb: openpyxl.Workbook) -> list[Target]:
                 )
         except ValueError:
             logger.warning("OBR receipts: row '%s' not found", label)
+
+    # Guard on targets actually produced, not on exceptions caught: a layout
+    # change that shifts the value columns finds every row and still yields
+    # nothing, which is the same silent failure by a different route.
+    if not recovered:
+        raise ValueError(
+            "OBR receipts: none of the cash-basis rows "
+            f"({', '.join(cash_rows[k][0] for k in cash_rows)}) produced values "
+            f"on sheet '{ws39.title}'. The EFO layout has probably changed "
+            "again; silently dropping every receipts target is never correct."
+        )
 
     return targets
 
@@ -328,6 +455,32 @@ def _parse_nics(wb: openpyxl.Workbook) -> list[Target]:
     return targets
 
 
+def _universal_credit_rows(ws) -> tuple[int, int]:
+    """Table 4.9's universal credit rows inside and outside the welfare cap.
+
+    Each section has exactly one row starting "Universal credit"; the
+    outside-the-cap section starts at the row headed "Welfare spending
+    outside the welfare cap".
+    """
+    max_row = ws.max_row
+    boundary = _find_row(
+        ws, "Welfare spending outside the welfare cap", max_row=max_row
+    )
+    rows = [
+        row
+        for row in range(1, max_row + 1)
+        if str(ws[f"B{row}"].value or "").strip().startswith("Universal credit")
+    ]
+    inside = [row for row in rows if row < boundary]
+    outside = [row for row in rows if row > boundary]
+    if len(inside) != 1 or len(outside) != 1:
+        raise ValueError(
+            f"expected one universal credit row each side of row {boundary}, "
+            f"found rows {rows}"
+        )
+    return inside[0], outside[0]
+
+
 def _parse_welfare(wb: openpyxl.Workbook) -> list[Target]:
     """Parse Table 4.9 (welfare spending) from expenditure xlsx."""
     config = load_config()
@@ -379,10 +532,6 @@ def _parse_welfare(wb: openpyxl.Workbook) -> list[Target]:
             "Winter fuel payment",
             "winter_fuel_allowance",
         ),
-        "universal_credit_in_cap": (
-            "Universal credit",
-            "universal_credit",
-        ),
         "child_benefit": ("Child benefit", "child_benefit"),
         "state_pension": ("State pension", "state_pension"),
         "jobseekers_allowance": (
@@ -412,30 +561,41 @@ def _parse_welfare(wb: openpyxl.Workbook) -> list[Target]:
         except ValueError:
             logger.warning("OBR welfare: row '%s' not found", label)
 
-    # Universal credit outside cap (row 43) is jobseekers UC
+    # Universal credit has two rows: spending inside the welfare cap (row 18
+    # of the March 2026 table) and outside it (row 43). The welfare cap is the
+    # Charter for Budget Responsibility's limit on welfare spending, not the
+    # household benefit cap. It excludes the State Pension and the payments
+    # most sensitive to the economic cycle: JSA, associated Housing Benefit
+    # and their UC equivalent. DWP's benefit expenditure and caseload tables
+    # (Spring Forecast 2026) give the same £12.876bn for 2025-26 and define
+    # it (Notes) as "the total expenditure ... directed to those in the
+    # Intensive Work Search group"; EFO March 2026 para 4.24 n.20 uses the
+    # same regime. policyengine-uk has no UC conditionality regime. A proxy
+    # built from the legal tests and FRS employment status went from 5% under
+    # to 27% over DWP's 2025-26 figure when one employment-status code was
+    # mapped correctly, too fragile to calibrate to, so the two rows are
+    # targeted as one total. Both sit under "DWP social security",
+    # which covers Great Britain: Northern Ireland's UC is in the "NI social
+    # security" rows.
     try:
-        # UC outside cap = predominantly JSA-conditionality UC
-        uc_outside_row = _find_row(ws, "Universal credit", col="B", max_row=55)
-        # Find the second UC row (outside cap section)
-        for row in range(uc_outside_row + 1, 55):
-            cell_val = ws[f"B{row}"].value
-            if cell_val and str(cell_val).strip().startswith("Universal credit"):
-                values = read_49(row)
-                if values:
-                    targets.append(
-                        Target(
-                            name="obr/universal_credit_outside_cap",
-                            variable="universal_credit",
-                            source="obr",
-                            unit=Unit.GBP,
-                            values=values,
-                            reference_url=ref,
-                            forecast_vintage=vintage,
-                        )
-                    )
-                break
-    except ValueError:
-        logger.warning("OBR welfare: UC outside cap not found")
+        inside_row, outside_row = _universal_credit_rows(ws)
+        inside, outside = read_49(inside_row), read_49(outside_row)
+        if not inside or inside.keys() != outside.keys():
+            raise ValueError("the two universal credit rows cover different years")
+        targets.append(
+            Target(
+                name="obr/universal_credit",
+                variable="universal_credit",
+                source="obr",
+                unit=Unit.GBP,
+                values={year: inside[year] + outside[year] for year in inside},
+                countries=GREAT_BRITAIN,
+                reference_url=ref,
+                forecast_vintage=vintage,
+            )
+        )
+    except ValueError as e:
+        logger.warning("OBR welfare: universal credit not parsed: %s", e)
 
     return targets
 

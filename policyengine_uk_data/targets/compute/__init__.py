@@ -7,8 +7,6 @@ from policyengine_uk_data.targets.compute.benefits import (
     compute_two_child_limit,
     compute_uc_by_children,
     compute_uc_by_family_type,
-    compute_uc_jobseeker,
-    compute_uc_outside_cap,
     compute_uc_payment_dist,
 )
 from policyengine_uk_data.targets.compute.council_tax import (
@@ -37,6 +35,7 @@ from policyengine_uk_data.targets.compute.other import (
     compute_housing,
     compute_land_value,
     compute_person_support,
+    compute_public_sector_employment,
     compute_regional_land_value,
     compute_savings_interest,
     compute_scottish_child_payment,
@@ -59,6 +58,7 @@ __all__ = [
     "compute_obr_council_tax",
     "compute_person_support",
     "compute_pip_claimants",
+    "compute_public_sector_employment",
     "compute_regional_age",
     "compute_savings_interest",
     "compute_scotland_demographics",
@@ -75,8 +75,6 @@ __all__ = [
     "compute_two_child_limit",
     "compute_uc_by_children",
     "compute_uc_by_family_type",
-    "compute_uc_jobseeker",
-    "compute_uc_outside_cap",
     "compute_uc_payment_dist",
     "compute_uk_population",
     "compute_vehicles",

@@ -146,6 +146,18 @@ CONSUMPTION_VARIABLE_RENAMES = {
     "p537": "domestic_energy_consumption",  # aggregate kept for backward compat
 }
 
+# LCFS detailed COICOP codes for bus & coach fares (passenger transport by
+# road). There is no single P-code for bus fares alone — P607
+# (transport_consumption) bundles vehicle purchase, running costs, fuel, air and
+# rail — so bus_fare_spending is summed from the detailed codes. Excludes rail
+# (c731xx), air, combined tickets and taxis (which the LCFS codes separately).
+# Confirmed present in the LCFS 2021/22 and 2023/24 (current release) dvhh
+# files; re-confirm whenever CURRENT_LCFS_RELEASE is bumped, as detailed
+# sub-codes can change between vintages (these resolve directly against the
+# current release at build time, so a renamed/removed code fails loudly rather
+# than silently zeroing).
+BUS_FARE_LCFS_CODES = ["c73212", "c73213", "c73214"]
+
 PREDICTOR_VARIABLES = [
     "is_adult",
     "is_child",
@@ -174,6 +186,7 @@ IMPUTATIONS = [
     "miscellaneous_consumption",
     "petrol_spending",
     "diesel_spending",
+    "bus_fare_spending",  # COICOP 7.3.2 bus & coach fares (see BUS_FARE_LCFS_CODES)
     "domestic_energy_consumption",  # aggregate; backward compat with price cap subsidy
     "electricity_consumption",
     "gas_consumption",
@@ -585,11 +598,20 @@ def generate_lcfs_table(lcfs_person: pd.DataFrame, lcfs_household: pd.DataFrame)
 
     household = household.rename(columns=CONSUMPTION_VARIABLE_RENAMES)
 
+    # Bus & coach fares (COICOP 7.3.2), summed from the detailed LCFS codes.
+    # Recorded household-level only — LCFS has no person-level fare field — so
+    # this is the household total; allocating to individuals (e.g. for an
+    # age-targeted fare reform) requires an external age-usage profile (NTS).
+    household["bus_fare_spending"] = sum(
+        household[code] for code in BUS_FARE_LCFS_CODES
+    )
+
     # Annualise weekly LCFS values. Use the same WEEKS_IN_YEAR constant
     # (365.25 / 7 ≈ 52.1786) as `datasets/frs.py` rather than a bare `* 52`,
     # which underestimates annual totals by ~0.34% and skews VAT / energy
     # imputation targets against FRS income.
     annualise = list(CONSUMPTION_VARIABLE_RENAMES.values()) + [
+        "bus_fare_spending",
         "hbai_household_net_income",
         "household_gross_income",
         "electricity_consumption",
@@ -757,6 +779,160 @@ def calibrate_dataset_fuel_litre_proxies_to_road_fuel(
         int(dataset.time_period),
         parameters=parameters,
     )
+
+
+# England → UK uplift for England-only DfT bus figures: ONS mid-2023 population
+# ratio (UK 68.3M / England 57.7M ≈ 1.18), a best approximation since DfT
+# publishes no single GB/UK bus-finance total. Indicative — bus use per head
+# varies by nation. https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/populationestimates
+ENGLAND_TO_UK_POPULATION_UPLIFT = 68.3 / 57.7  # ≈ 1.18
+
+BUS_FARE_TARGETS = {
+    # DfT Annual Bus Statistics, year ending March 2025 (England), table
+    # BUS05aii: passenger fare receipts on local bus services were GBP 3.4bn
+    # (52% of GBP 6.6bn total operating revenue), uplifted England → UK by
+    # population (≈ GBP 4.0bn UK). Without anchoring, the imputed aggregate
+    # inherits the broader transport-consumption over-estimate (~GBP 10bn).
+    # https://www.gov.uk/government/statistics/annual-bus-statistics-year-ending-march-2025/annual-bus-statistics-year-ending-march-2025
+    2025: 3.4e9 * ENGLAND_TO_UK_POPULATION_UPLIFT,
+}
+
+# DfT BUS05ai, year ending March 2025: England passenger fare receipts by area
+# — England GBP 3,417m, of which London GBP 1,347m and England outside London
+# GBP 2,070m. The LCFS imputation under-captures London fares (Oyster/
+# contactless spend is poorly separated in household diaries), and a
+# national-only calibration smears the shortfall across the other English
+# regions, overstating outside-London fare exposure by ~47%.
+# https://www.gov.uk/government/statistical-data-sets/bus-statistics-data-tables
+BUS_FARE_LONDON_SHARE_OF_ENGLAND = 1347 / 3417
+
+# NTS0705a 2024, 'Other local bus' (outside London) average trips per person
+# per year by household income quintile (England). Anchors the income
+# distribution of household fare spending, assuming a common average fare per
+# trip across quintiles: the raw LCFS spend gradient runs the wrong way
+# (richer households record more bus & coach spend, while NTS shows the lowest
+# quintile makes ~3.7x the local bus trips of the highest).
+# https://www.gov.uk/government/statistical-data-sets/nts07-car-ownership-and-access
+NTS_BUS_TRIPS_BY_INCOME_QUINTILE = {1: 47.6, 2: 37.5, 3: 24.8, 4: 18.5, 5: 13.0}
+
+ENGLAND_REGIONS_OUTSIDE_LONDON = {
+    "NORTH_EAST",
+    "NORTH_WEST",
+    "YORKSHIRE",
+    "EAST_MIDLANDS",
+    "WEST_MIDLANDS",
+    "EAST_OF_ENGLAND",
+    "SOUTH_EAST",
+    "SOUTH_WEST",
+}
+
+
+def calibrate_bus_fare_spending(
+    dataset: UKSingleYearDataset,
+    time_period: int,
+) -> float | None:
+    """Calibrate bus_fare_spending to DfT and NTS anchors.
+
+    Three constraints, applied in order (the distributional anchors preserve
+    the national total):
+
+    1. National total: DfT BUS05aii passenger fare receipts (BUS_FARE_TARGETS).
+    2. Within-England regional split: DfT BUS05ai London / outside-London
+       receipts (BUS_FARE_LONDON_SHARE_OF_ENGLAND).
+    3. Income distribution: England quintile fare shares proportional to
+       population-weighted NTS0705a local-bus trip rates
+       (NTS_BUS_TRIPS_BY_INCOME_QUINTILE), alternated with (2) in a small
+       IPF loop.
+    """
+    target = BUS_FARE_TARGETS.get(time_period)
+    if target is None:
+        return None
+
+    original_time_period = dataset.time_period
+    dataset.time_period = str(original_time_period)
+    try:
+        simulation = Microsimulation(dataset=dataset)
+        fares = simulation.calculate(
+            "bus_fare_spending",
+            period=time_period,
+            map_to="household",
+        )
+        actual = fares.sum()
+        region = np.array(
+            simulation.calculate(
+                "region", period=time_period, map_to="household"
+            ).values
+        ).astype(str)
+        decile = np.array(
+            simulation.calculate(
+                "household_income_decile", period=time_period, map_to="household"
+            ).values,
+            dtype=float,
+        )
+        people = np.array(
+            simulation.calculate(
+                "people", period=time_period, map_to="household"
+            ).values,
+            dtype=float,
+        )
+        weights = np.array(fares.weights, dtype=float)
+    finally:
+        dataset.time_period = original_time_period
+    if actual <= 0:
+        raise ValueError(f"Cannot calibrate bus_fare_spending: aggregate is {actual}.")
+
+    scale = target / actual
+    values = np.array(dataset.household["bus_fare_spending"], dtype=float) * scale
+
+    is_london = region == "LONDON"
+    outside_london = np.isin(region, list(ENGLAND_REGIONS_OUTSIDE_LONDON))
+    in_england = is_london | outside_london
+    quintile = np.where(
+        decile >= 1, np.clip(((decile - 1) // 2 + 1).astype(int), 1, 5), 0
+    )
+
+    def _wsum(mask_or_values):
+        return float((np.asarray(mask_or_values, dtype=float) * weights).sum())
+
+    england_total = _wsum(values * in_england)
+    quintile_population = {
+        q: _wsum(people * (in_england & (quintile == q)))
+        for q in NTS_BUS_TRIPS_BY_INCOME_QUINTILE
+    }
+    target_norm = sum(
+        quintile_population[q] * rate
+        for q, rate in NTS_BUS_TRIPS_BY_INCOME_QUINTILE.items()
+    )
+    for _ in range(3):
+        for q, rate in NTS_BUS_TRIPS_BY_INCOME_QUINTILE.items():
+            mask = in_england & (quintile == q)
+            current = _wsum(values * mask)
+            if current > 0:
+                quintile_target = (
+                    quintile_population[q] * rate / target_norm * england_total
+                )
+                values = np.where(mask, values * quintile_target / current, values)
+        london_actual = _wsum(values * is_london)
+        outside_actual = _wsum(values * outside_london)
+        if london_actual > 0 and outside_actual > 0:
+            values = np.where(
+                is_london,
+                values
+                * BUS_FARE_LONDON_SHARE_OF_ENGLAND
+                * england_total
+                / london_actual,
+                np.where(
+                    outside_london,
+                    values
+                    * (1 - BUS_FARE_LONDON_SHARE_OF_ENGLAND)
+                    * england_total
+                    / outside_actual,
+                    values,
+                ),
+            )
+
+    dataset.household["bus_fare_spending"] = values
+    return scale
 
 
 def save_imputation_models():

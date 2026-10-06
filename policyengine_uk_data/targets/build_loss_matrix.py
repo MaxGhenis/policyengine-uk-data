@@ -35,6 +35,7 @@ from policyengine_uk_data.targets.compute import (
     compute_person_support,
     compute_obr_council_tax,
     compute_pip_claimants,
+    compute_public_sector_employment,
     compute_regional_age,
     compute_savings_interest,
     compute_scotland_demographics,
@@ -51,8 +52,6 @@ from policyengine_uk_data.targets.compute import (
     compute_two_child_limit,
     compute_uc_by_children,
     compute_uc_by_family_type,
-    compute_uc_jobseeker,
-    compute_uc_outside_cap,
     compute_uc_payment_dist,
     compute_uk_population,
     compute_vehicles,
@@ -113,13 +112,25 @@ def create_target_matrix(
             col = _compute_column(target, ctx, year)
             if col is None:
                 continue
-            df[target.name] = col
+            df[target.name] = restrict_to_countries(col, ctx.country, target.countries)
             target_names.append(target.name)
             target_values.append(val)
         except Exception as e:
             logger.warning("Skipping target %s: %s", target.name, e)
 
     return df, pd.Series(target_values, index=target_names)
+
+
+def restrict_to_countries(column, household_country, countries):
+    """Zero a household column outside the countries a target covers.
+
+    ``countries`` of None means the target covers the whole UK, and the
+    column is returned unchanged.
+    """
+    if countries is None:
+        return column
+    in_scope = np.isin(np.asarray(household_country), countries)
+    return np.asarray(column, dtype=float) * in_scope
 
 
 def _resolve_value(target: Target, year: int) -> float | None:
@@ -276,6 +287,10 @@ def _compute_column(target: Target, ctx: _SimContext, year: int) -> np.ndarray |
     if target.variable == "tenure_type" and target.is_count:
         return compute_tenure(target, ctx)
 
+    # Public sector employment (ONS PSE)
+    if target.variable == "employment_sector" and target.is_count:
+        return compute_public_sector_employment(target, ctx)
+
     # Income bands (HMRC SPI)
     if target.breakdown_variable == "total_income":
         return compute_income_band(target, ctx)
@@ -387,19 +402,6 @@ def _compute_column(target: Target, ctx: _SimContext, year: int) -> np.ndarray |
         "obr/salary_sacrifice_employer_ni_relief",
     ):
         return compute_ss_ni_relief(target, ctx)
-
-    # UC jobseeker splits
-    if name in (
-        "obr/universal_credit_jobseekers",
-        "obr/universal_credit_non_jobseekers",
-        "obr/universal_credit_jobseekers_count",
-        "obr/universal_credit_non_jobseekers_count",
-    ):
-        return compute_uc_jobseeker(target, ctx)
-
-    # UC outside benefit cap
-    if name == "obr/universal_credit_outside_cap":
-        return compute_uc_outside_cap(target, ctx)
 
     # Two-child limit
     if "two_child_limit" in name:

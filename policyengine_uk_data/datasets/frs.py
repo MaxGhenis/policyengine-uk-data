@@ -7,6 +7,8 @@ The FRS is the primary source of UK household survey data used for tax-benefit
 modelling and policy analysis.
 """
 
+import re
+import warnings
 from functools import lru_cache
 from pathlib import Path
 
@@ -31,6 +33,10 @@ from policyengine_uk_data.utils.datasets import (
     STORAGE_FOLDER,
 )
 from policyengine_uk_data.parameters import load_take_up_rate, load_parameter
+from policyengine_uk_data.datasets.childcare.assumptions import (
+    EXTENDED_HOURS_MEAN,
+    EXTENDED_HOURS_SD,
+)
 
 
 # Canonical weeks-per-year conversion factor for annualising weekly survey
@@ -87,6 +93,23 @@ def load_legacy_jobseeker_max_annual_hours(year: int) -> int:
     system = CountryTaxBenefitSystem()
     max_weekly_hours = int(system.parameters.gov.dwp.JSA.hours.single(str(year)))
     return max_weekly_hours * HOURS_WORKED_WEEKS_PER_YEAR
+
+
+def require_variable(name: str, description: str) -> None:
+    """Fail the build if the installed policyengine-uk lacks ``name``.
+
+    ``UKSingleYearDataset`` drops columns absent from the tax-benefit system
+    rather than raising, so writing an input the model does not define is a
+    silent no-op. Anything this build depends on the model actually reading
+    should be asserted here.
+    """
+    if name not in CountryTaxBenefitSystem().variables:
+        raise RuntimeError(
+            f"The installed policyengine-uk does not define {name!r}, so the "
+            f"{description} would be written and then silently discarded when "
+            "the dataset is loaded. Upgrade policyengine-uk to a release that "
+            "defines it."
+        )
 
 
 def derive_legacy_jobseeker_proxy(
@@ -419,13 +442,21 @@ def allocate_reported_education_grants(
 
 
 def calculate_disabled_students_allowance_reported_grant_capacity(
-    sim, year: int, maximum: float
+    sim, policy_year: int, maximum: float
 ) -> np.ndarray:
-    if year < DISABLED_STUDENTS_ALLOWANCE_FIRST_MODELED_YEAR:
+    """DSA capacity for the first policy year the dataset will be simulated at.
+
+    ``DISABLED_STUDENTS_ALLOWANCE_FIRST_MODELED_YEAR`` is the first policy
+    year policyengine-uk models DSA, so the gate compares against the policy
+    year rather than the survey year: an FRS 2024-25 build simulated from
+    2025 must seed DSA expenses even though its survey year is 2024
+    (uk-data#478).
+    """
+    if policy_year < DISABLED_STUDENTS_ALLOWANCE_FIRST_MODELED_YEAR:
         return np.zeros_like(
             np.asarray(
                 sim.calculate(
-                    DISABLED_STUDENTS_ALLOWANCE_ELIGIBILITY_VARIABLES[0], year
+                    DISABLED_STUDENTS_ALLOWANCE_ELIGIBILITY_VARIABLES[0], policy_year
                 )
             ),
             dtype=float,
@@ -433,19 +464,25 @@ def calculate_disabled_students_allowance_reported_grant_capacity(
 
     eligible = None
     for variable in DISABLED_STUDENTS_ALLOWANCE_ELIGIBILITY_VARIABLES:
-        variable_eligible = np.asarray(sim.calculate(variable, year), dtype=bool)
+        variable_eligible = np.asarray(sim.calculate(variable, policy_year), dtype=bool)
         eligible = (
             variable_eligible if eligible is None else eligible & variable_eligible
         )
     equivalent_support = np.asarray(
-        sim.calculate("disabled_students_allowance_receives_equivalent_support", year),
+        sim.calculate(
+            "disabled_students_allowance_receives_equivalent_support", policy_year
+        ),
         dtype=bool,
     )
     return np.where(eligible & ~equivalent_support, float(maximum), 0.0)
 
 
 def split_reported_education_grants(
-    pe_person: pd.DataFrame, sim, year: int, dsa_maximum: float
+    pe_person: pd.DataFrame,
+    sim,
+    year: int,
+    dsa_maximum: float,
+    policy_year: int | None = None,
 ) -> pd.DataFrame:
     """Move specific modelled grants out of the generic education-grant residual.
 
@@ -454,7 +491,15 @@ def split_reported_education_grants(
     counting the same reported FRS grant amount in the generic residual.
     DSA lacks a modelled amount signal, so its allocation seeds eligible
     expenses directly where the DSA parameter is available.
+
+    ``year`` is the survey year the grant capacities are evaluated at.
+    ``policy_year`` (default ``year``) is the first policy year the dataset
+    will be simulated at; it gates the DSA seed, which policyengine-uk only
+    models from ``DISABLED_STUDENTS_ALLOWANCE_FIRST_MODELED_YEAR``.
     """
+
+    if policy_year is None:
+        policy_year = year
 
     grant_capacities = {
         variable: sim.calculate(variable, year)
@@ -462,7 +507,7 @@ def split_reported_education_grants(
     }
     grant_capacities[DISABLED_STUDENTS_ALLOWANCE_EXPENSE_INPUT] = (
         calculate_disabled_students_allowance_reported_grant_capacity(
-            sim, year, dsa_maximum
+            sim, policy_year, dsa_maximum
         )
     )
     allocations = allocate_reported_education_grants(
@@ -477,10 +522,59 @@ def split_reported_education_grants(
     return pe_person
 
 
+FRS_RELEASE_FOLDER_PATTERN = re.compile(r"^frs_(\d{4})_(\d{2})$")
+
+
+def survey_year_from_frs_folder_name(raw_frs_folder) -> int | None:
+    """Survey year encoded in an FRS release folder name (``frs_2024_25`` -> 2024).
+
+    Returns ``None`` for folders outside the release naming convention, such
+    as synthetic fixtures in tests.
+    """
+    match = FRS_RELEASE_FOLDER_PATTERN.match(Path(raw_frs_folder).name)
+    if match is None:
+        return None
+    return int(match.group(1))
+
+
+def validate_frs_survey_year(raw_frs_folder, year: int) -> None:
+    """Refuse a ``year`` that does not match the FRS release being read.
+
+    ``year`` stamps the dataset's ``time_period``, selects vintage-dependent
+    columns, and thresholds reported benefit amounts against that fiscal
+    year's rates. Nothing in ``create_frs`` uprates, so passing the survey
+    year plus one asserts the survey's amounts as the next year's and
+    mis-thresholds every disability category and flag (uk-data#477). The
+    folder name is the release identity available here: ``frs_2024_25`` is
+    survey year 2024. A folder outside that convention (a synthetic fixture,
+    an ad hoc extraction) cannot be checked, so the function warns and
+    returns rather than guessing.
+    """
+    folder_survey_year = survey_year_from_frs_folder_name(raw_frs_folder)
+    if folder_survey_year is None:
+        warnings.warn(
+            f"FRS folder {Path(raw_frs_folder).name!r} does not follow the "
+            f"frs_YYYY_YY release naming, so year={year} cannot be checked "
+            "against the release being read.",
+            stacklevel=2,
+        )
+        return
+    if int(year) != folder_survey_year:
+        raise ValueError(
+            f"FRS folder {Path(raw_frs_folder).name!r} is survey year "
+            f"{folder_survey_year} (fiscal year {folder_survey_year}/"
+            f"{(folder_survey_year + 1) % 100:02d}) but year={year} was passed. "
+            "`year` is the survey year and stamps time_period; it does not "
+            "uprate. Build with the survey year and uprate the saved dataset "
+            "with `uprate_dataset` instead."
+        )
+
+
 def create_frs(
     raw_frs_folder: str,
     year: int,
     include_internal_disability_reported_amounts: bool = False,
+    policy_year: int | None = None,
 ) -> UKSingleYearDataset:
     """
     Process raw FRS data into PolicyEngine UK dataset format.
@@ -492,10 +586,19 @@ def create_frs(
 
     Args:
         raw_frs_folder: Path to folder containing raw FRS .tab files.
-        year: Survey year for the dataset.
+        year: Survey year for the dataset: the fiscal year the fieldwork
+            covers (2024 for FRS 2024-25). It stamps ``time_period``, selects
+            vintage-dependent survey columns, and thresholds reported benefit
+            amounts against that fiscal year's rates. It must match the
+            release folder being read; nothing here uprates.
         include_internal_disability_reported_amounts: Keep raw disability
             benefit amount intermediates for downstream imputation. Public
             saved datasets should leave this as ``False``.
+        policy_year: First policy year the dataset will be simulated at (the
+            release's calibration year in the build). Gates seeds for
+            programmes policyengine-uk models from a later year than the
+            survey, currently Disabled Students' Allowance. Defaults to
+            ``year``.
 
     Returns:
         UKSingleYearDataset with processed FRS data ready for policy simulation.
@@ -503,6 +606,14 @@ def create_frs(
     raw_folder = Path(raw_frs_folder)
     if not raw_folder.exists():
         raise FileNotFoundError(f"Raw folder {raw_folder} does not exist.")
+    validate_frs_survey_year(raw_folder, year)
+    if policy_year is None:
+        policy_year = year
+    if int(policy_year) < int(year):
+        raise ValueError(
+            f"policy_year={policy_year} precedes survey year={year}; the dataset "
+            "cannot be simulated at a policy year before its survey year."
+        )
 
     frs = {}
     # Store SALSAC values before numeric conversion (for salary sacrifice
@@ -546,9 +657,21 @@ def create_frs(
     frs["person"] = pd.concat([frs["adult"], frs["child"]]).sort_index().fillna(0)
 
     person = frs["person"]
-    benunit = frs["benunit"]
+    # Sort by benunit_id for the same reason the household table is sorted
+    # below: the model declares benunit entities in sorted-id order
+    # (np.unique(benunit_id)), so if the raw table order differs (the case
+    # from the 2024-25 FRS onward), every benunit-level variable — including
+    # benunit_id itself — lands on the wrong benefit unit.
+    benunit = frs["benunit"].sort_values("benunit_id").reset_index(drop=True)
     household = frs["househol"]
-    household = household.set_index("household_id")
+    # Sort by household_id so positional reads below (e.g.
+    # `household.gross4.values`) align with `pe_household["household_id"]`,
+    # which is built from the sorted unique person household ids. Without this
+    # the household grossing weight and every other household-level variable
+    # land on the wrong household whenever the raw FRS household table is not
+    # already ordered by sernum (the case from the 2024-25 FRS onward),
+    # scrambling weights and collapsing the population.
+    household = household.set_index("household_id").sort_index()
     pension = frs["pension"]
     oddjob = frs["oddjob"]
     account = frs["accounts"]
@@ -749,6 +872,22 @@ def create_frs(
         person.empstati, 1, range(12), EMPLOYMENTS
     ).fillna("LONG_TERM_DISABLED")
 
+    # Add employer sector of the main job from FRS `mjobsect`
+    # (1 = private, 2 = public; missing/blank = not in paid work).
+    EMPLOYMENT_SECTORS = ["NOT_EMPLOYED", "PRIVATE", "PUBLIC"]
+    pe_person["employment_sector"] = categorical(
+        pd.to_numeric(person.mjobsect, errors="coerce"),
+        0,
+        [0, 1, 2],
+        EMPLOYMENT_SECTORS,
+    ).fillna("NOT_EMPLOYED")
+
+    # Standard Industrial Classification (2007) division of the main job from
+    # FRS `sic` (0 if unknown; 84 = public administration and defence).
+    pe_person["sic_industry_division"] = (
+        pd.to_numeric(person.sic, errors="coerce").fillna(0).clip(lower=0).astype(int)
+    )
+
     REGIONS = [
         "NORTH_EAST",
         "NORTH_WEST",
@@ -794,6 +933,28 @@ def create_frs(
 
     # Impute Council Tax
 
+    # In Scotland, council tax bills are collected together with Scottish
+    # Water and sewerage charges, and the FRS CTANNUAL variable includes
+    # them. Net them off (they are weekly variables; CTANNUAL is annual) so
+    # council_tax is tax only: the water charges are already captured
+    # separately in water_and_sewerage_charges, so leaving them in both
+    # double-counts them and overstates Scottish council tax by roughly
+    # £500 per household (~25% of the Scottish total).
+    SCOTLAND_GVTREGNO = 12
+    scottish_water_annual = pd.Series(
+        np.where(
+            household.gvtregno == SCOTLAND_GVTREGNO,
+            (
+                np.maximum(household.csewamt.fillna(0), 0)
+                + np.maximum(household.cwatamtd.fillna(0), 0)
+            )
+            * (365.25 / 7),
+            0,
+        ),
+        index=household.index,
+    )
+    ctannual_tax_only = np.maximum(household.ctannual - scottish_water_annual, 0)
+
     # Only ~25% of household report Council Tax bills - use
     # these to build a model to impute missing values
     CT_valid = household.ctannual > 0
@@ -803,7 +964,7 @@ def create_frs(
     region = household.gvtregno[CT_valid]
     band = household.ctband[CT_valid]
     single_person = (household.adulth == 1)[CT_valid]
-    ctannual = household.ctannual[CT_valid]
+    ctannual = ctannual_tax_only[CT_valid]
 
     # Build the table
     ct_mean = ctannual.groupby([region, band, single_person], dropna=False).mean()
@@ -828,7 +989,7 @@ def create_frs(
             # uses -1 for missing values
             (household.ctannual < 0) | household.ctannual.isna(),
             np.maximum(ct_imputed, 0).values,
-            household.ctannual,
+            ctannual_tax_only,
         )
     )
     pe_household["council_tax"] = council_tax.fillna(0)
@@ -1308,10 +1469,14 @@ def create_frs(
         )
         student_support_sim = Microsimulation(dataset=student_support_dataset)
         dsa_maximum = student_support_sim.tax_benefit_system.parameters(
-            year
+            policy_year
         ).gov.dfe.disabled_students_allowance.maximum
         pe_person = split_reported_education_grants(
-            pe_person, student_support_sim, year, dsa_maximum
+            pe_person,
+            student_support_sim,
+            year,
+            dsa_maximum,
+            policy_year=policy_year,
         )
 
     # Generate stochastic take-up decisions
@@ -1328,6 +1493,9 @@ def create_frs(
     marriage_allowance_rate = load_take_up_rate("marriage_allowance", year)
     child_benefit_opts_out_rate = load_take_up_rate("child_benefit_opts_out_rate", year)
     tfc_rate = load_take_up_rate("tax_free_childcare", year)
+    tfc_spend_routed_share = load_parameter(
+        "stochastic", "tax_free_childcare_spend_routed_share", year
+    )
     extended_childcare_rate = load_take_up_rate("extended_childcare", year)
     universal_childcare_rate = load_take_up_rate("universal_childcare", year)
     targeted_childcare_rate = load_take_up_rate("targeted_childcare", year)
@@ -1375,6 +1543,7 @@ def create_frs(
         reported_mask=_reported_benunit_mask("universal_credit_reported"),
     )
     pe_benunit["would_claim_tfc"] = generator.random(len(pe_benunit)) < tfc_rate
+
     pe_benunit["would_claim_extended_childcare"] = (
         generator.random(len(pe_benunit)) < extended_childcare_rate
     )
@@ -1417,14 +1586,37 @@ def create_frs(
     )
 
     # Person-level: Tie-breaking for higher earner (uniform random)
+    # Tax-Free Childcare tops up money paid through the account, not a family's
+    # whole childcare bill, and childcare_expenses is annual. Person-level
+    # because a Tax-Free Childcare account is held for one child (Childcare
+    # Payments Act 2014 section 15(2)) and the variable it feeds is per child.
+    # See parameters/stochastic/tax_free_childcare_spend_routed_share.yaml.
+    #
+    # Checked rather than assumed: policyengine-uk's dataset loader skips
+    # columns it does not recognise, so a model predating the variable would
+    # silently drop this correction and fall back to the model default of 1 —
+    # a build that looks clean and ships uncorrected Tax-Free Childcare
+    # spending. The pyproject floor cannot express this yet because the
+    # release carrying the variable does not exist at the time of writing, so
+    # fail loudly here instead.
+    require_variable(
+        "tax_free_childcare_spend_routed_share",
+        "Tax-Free Childcare routed-spend adjustment",
+    )
+    pe_person["tax_free_childcare_spend_routed_share"] = tfc_spend_routed_share
+
     pe_person["higher_earner_tie_break"] = generator.random(len(pe_person))
 
     # Person-level: Private school attendance random draw
     pe_person["attends_private_school_random_draw"] = generator.random(len(pe_person))
 
-    # Generate extended childcare hours usage values with mean 15.019 and sd
-    # 4.972
-    extended_hours_values = generator.normal(15.019, 4.972, len(pe_benunit))
+    # Generate extended childcare hours usage values. The mean and sd are a
+    # modelling assumption, not a fitted result: without an extended spending
+    # target the calibration objective cannot identify them. See
+    # childcare/assumptions.py.
+    extended_hours_values = generator.normal(
+        EXTENDED_HOURS_MEAN, EXTENDED_HOURS_SD, len(pe_benunit)
+    )
     # Clip values to be between 0 and 30 hours
     extended_hours_values = np.clip(extended_hours_values, 0, 30)
 
@@ -1433,7 +1625,7 @@ def create_frs(
 
     # Add marital status at the benefit unit level
 
-    pe_benunit["is_married"] = frs["benunit"].famtypb2.isin([5, 7])
+    pe_benunit["is_married"] = benunit.famtypb2.isin([5, 7])
 
     # Assign property_purchased to a share of households matching the UK
     # housing transaction rate, so only genuine purchasers are charged SDLT.
@@ -1482,5 +1674,6 @@ if __name__ == "__main__":
     frs = create_frs(
         raw_frs_folder=STORAGE_FOLDER / CURRENT_FRS_RELEASE.name,
         year=CURRENT_FRS_RELEASE.survey_year,
+        policy_year=CURRENT_FRS_RELEASE.calibration_year,
     )
     frs.save(STORAGE_FOLDER / CURRENT_FRS_RELEASE.base_dataset_file)

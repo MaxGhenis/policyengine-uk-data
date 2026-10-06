@@ -1,3 +1,117 @@
+## [1.57.4] - 2026-09-25
+
+### Changed
+
+- Documentation: the private HuggingFace repo is now public + gated (manual approval) as of 31 July 2026 — file contents remain restricted; never weaken the gate or flip the repo back to private.
+
+
+## [1.57.3] - 2026-09-04
+
+No significant changes.
+
+
+## [1.57.2] - 2026-08-30
+
+### Fixed
+
+- Correct the universal and early-learning-for-2-year-olds calibration targets to DfE's published January 2024 figures. The universal target nets off the working parent entitlement, since `universal_childcare_entitlement` is modelled as mutually exclusive with it; the prior 490 thousand target counted 1.18x the children the variable covers. Both prior targets were unsourced. The spending figures are documented as a modelled full-entitlement value rather than an observed outturn, since DfE publishes headcounts rather than per-programme spending.
+  Drop the universal and targeted **spending** targets. DfE publishes no per-programme spending, so the only derivable figure is the caseload at the statutory 570 hours times the DfE funding rate — 416,537 x 570 x 5.88 and 115,852 x 570 x 8.28. Being caseload times a constant, each restates a target the registry already holds, and `takeup_rate.objective` sums an equally weighted squared relative error over every entry, so the loop counted those two schemes twice against Tax-Free Childcare and extended hours on no extra evidence. Both also assumed every registered child took the full 570 hours, making them upper bounds that pulled weights up. Tax-Free Childcare spending stays: it varies with childcare expenditure, so it is not redundant with its caseload.
+
+
+## [1.57.1] - 2026-08-30
+
+### Fixed
+
+- Share the childcare calibration targets between the take-up optimisation and the test that checks them, so the two cannot drift apart. The test had kept the 0.6 / 660 Tax-Free Childcare targets from the September 2024 release after the optimisation moved to the June 2025 figures. Correct the TFC caseload target to the 1,085 thousand children HMRC reports for 2024-25; it was recorded as 985 thousand, which does not appear in the release it cites. The test's tolerance also allowed any ratio in (0, 2), so it could not detect a doubling; it is now ±40% with per-programme overrides available, and every programme's deviation from target is reported on each run.
+  Source the extended (working parent) targets, which were inherited from before this module existed and could not be traced to any release. DfE's January 2025 census reports 379,000 3 and 4-year-olds and 242,500 2-year-olds registered for the working parent entitlement, so the caseload target moves from 740 to 621.5 thousand. The £2.5bn spending target is removed rather than replaced: the model gives 3 and 4-year-olds 1,140 funded hours, not 570, so the only derivable DfE figure is a £3.685bn full-usage ceiling the model pays 75% of, and no outturn exists to calibrate against. The basis is January 2025 rather than 2024 because the 2-year-old entitlement began in April 2024, so the January 2024 census misses half the scheme; that mixed basis, the full-entitlement upper bound in the spending figure, and the model's lack of any under-2s against DfE's 224,300 are all documented in the module.
+  Correct the module's own claim that no release-calibration gate exists. As push.yaml stands for release 1.56.16, it builds the release at 512 epochs with one OA clone, runs the test suite and only then uploads; the 1.87x artefact passed because the old tolerance admitted it, not because the gate was missing. That configuration has not applied continuously — release testing briefly ran with TESTING=1 in December 2025 — so the test pins what the workflow does rather than assuming it: the exact build, test and upload commands, the clone count, tests before upload, and no condition that lets a failing test through. Tax-Free Childcare tolerances tighten to ±25% as a provisional QA judgement — both targets are official published outturns, and a local build with the corrected inputs measured 1.02x, though not from a citable release log; the others stay at ±40% until a release-build measurement exists.
+  Give the reduced-epoch pull-request build its own acceptance contract. A 32-epoch smoke build cannot be held to a release threshold: Tax-Free Childcare spending measured 1.11x on one branch's smoke build and 0.60x on another's. The override is ±60%, admitting ratios in (0.4, 1.6), so it still rejects a target that lost or doubled its population but nothing finer. It is keyed to Tax-Free Childcare spending alone — the only check that needs it — so the other six keep their release thresholds in both builds and a regression in any of them still fails the pull request. The fixed extended-hours assumptions also move to a dependency-free `childcare/assumptions.py`, so building the dataset no longer imports the calibration module to read two constants.
+
+
+## [1.57.0] - 2026-08-28
+
+### Added
+
+- Set `tax_free_childcare_spend_routed_share` when building the FRS, from HMRC's monthly and annual counts of children with used Tax-Free Childcare accounts. Tax-Free Childcare tops up money paid through the account rather than a family's whole childcare bill, and `childcare_expenses` is annual, so the build previously credited every claimant with a full year of routed spending. This is a calibration adjustment rather than a measurement: it takes its value from a published duration statistic because that is the closest observable quantity, and it moves modelled Tax-Free Childcare spending from 1.87x its target to 1.25x while leaving caseload at 1.02x. HMRC publishes no spend-weighted share.
+
+
+## [1.56.16] - 2026-08-18
+
+No significant changes.
+
+
+## [1.56.15] - 2026-08-17
+
+### Fixed
+
+- Correct Universal Credit caseload calibration by preserving the published family-type values, adding explicit 2025 and 2026 household totals from DWP deductions statistics, and removing dead OBR jobseeker-split dispatch logic.
+
+
+## [1.56.14] - 2026-07-26
+
+No significant changes.
+
+
+## [1.56.13] - 2026-07-22
+
+No significant changes.
+
+
+## [1.56.12] - 2026-07-21
+
+No significant changes.
+
+
+## [1.56.11] - 2026-07-21
+
+No significant changes.
+
+
+## [1.56.10] - 2026-07-21
+
+No significant changes.
+
+
+## [1.56.9] - 2026-07-20
+
+No significant changes.
+
+
+## [1.56.8] - 2026-07-19
+
+No significant changes.
+
+
+## [1.56.7] - 2026-06-19
+
+No significant changes.
+
+
+## [1.56.6] - 2026-06-19
+
+No significant changes.
+
+
+## [1.56.5] - 2026-06-18
+
+No significant changes.
+
+
+## [1.56.4] - 2026-06-18
+
+No significant changes.
+
+
+## [1.56.3] - 2026-06-17
+
+No significant changes.
+
+
+## [1.56.2] - 2026-06-17
+
+No significant changes.
+
+
 ## [1.56.1] - 2026-06-04
 
 ### Fixed

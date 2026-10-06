@@ -103,6 +103,7 @@ def main():
             "Clone and assign OA geography",
             "Calibrate constituency weights",
             "Calibrate local authority weights",
+            "Export long local geography weights",
             "Calibrate public service aggregates",
             "Calibrate fuel litres",
             "Save final dataset",
@@ -133,6 +134,7 @@ def main():
             frs = create_frs(
                 raw_frs_folder=STORAGE_FOLDER / frs_release.name,
                 year=frs_release.survey_year,
+                policy_year=frs_release.calibration_year,
                 include_internal_disability_reported_amounts=True,
             )
             strip_internal_disability_reported_amounts(frs).save(
@@ -179,6 +181,14 @@ def main():
 
             update_dataset("Impute capital gains", "processing")
             frs = impute_capital_gains(frs)
+            # Zero-weight donors for the HMRC size-of-gain bands the spline
+            # cannot reach; weighted (or not) by calibration via the
+            # per-band targets in targets/sources/hmrc_cgt.py.
+            from policyengine_uk_data.datasets.imputations.capital_gains import (
+                stack_cgt_band_donors,
+            )
+
+            frs = stack_cgt_band_donors(frs)
             update_dataset("Impute capital gains", "completed")
 
             update_dataset("Impute salary sacrifice", "processing")
@@ -279,6 +289,18 @@ def main():
             )
             update_dataset("Calibrate local authority weights", "completed")
 
+            update_dataset("Export long local geography weights", "processing")
+            from policyengine_uk_data.calibration.long_geography import (
+                LONG_GEOGRAPHY_WEIGHTS_FILE,
+                write_long_geography_weights,
+            )
+
+            write_long_geography_weights(
+                dataset=frs_calibrated_constituencies,
+                output_path=STORAGE_FOLDER / LONG_GEOGRAPHY_WEIGHTS_FILE,
+            )
+            update_dataset("Export long local geography weights", "completed")
+
             frs_calibrated = frs_calibrated_constituencies
             if materialize_base_year:
                 update_dataset(materialize_step, "processing")
@@ -289,12 +311,40 @@ def main():
                 )
                 update_dataset(materialize_step, "completed")
 
+            # The four aggregate scalers below run after the base-year
+            # materialisation on purpose. Rail and bus (subsidy and fares) are
+            # fitted by simulating the saved base-year file at the calibration
+            # year, the configuration consumers actually run: policyengine-uk
+            # re-uprates rail_usage (gov.dft.rail.ridership_index) and
+            # bus_fare_spending (CPI) at load, so a factor fitted on a
+            # calibration-year file and then down-rated would be uprated a
+            # second time. rail_usage, rail_subsidy_spending,
+            # bus_subsidy_spending and bus_fare_spending are not in
+            # uprating_factors.csv, so `uprate_dataset` leaves them untouched
+            # in either direction: uprating the saved file back to the
+            # calibration year reproduces the calibrated weights and monetary
+            # levels but keeps these post-calibration scalings, which the
+            # weight solve never saw. The saved file is therefore not
+            # uprate-invertible on those columns (uk-data#479).
+            #
+            # Road fuel is fitted differently: the litre-proxy scaler reads the
+            # saved file's own time_period (the base year), so it reconciles
+            # base-year litres at base-year pump prices to the base-year HMRC
+            # clearances. petrol_spending and diesel_spending are in
+            # uprating_factors.csv and carry their own load-time litre-proxy
+            # indices, so whether calibration-year litres hit the
+            # calibration-year target depends on those indices, not on this fit.
             update_dataset("Calibrate public service aggregates", "processing")
             from policyengine_uk_data.datasets.imputations.services.services import (
                 calibrate_rail_subsidy_spending,
+                calibrate_bus_subsidy_spending,
             )
 
             calibrate_rail_subsidy_spending(
+                frs_calibrated,
+                frs_release.calibration_year,
+            )
+            calibrate_bus_subsidy_spending(
                 frs_calibrated,
                 frs_release.calibration_year,
             )
@@ -303,9 +353,14 @@ def main():
             update_dataset("Calibrate fuel litres", "processing")
             from policyengine_uk_data.datasets.imputations.consumption import (
                 calibrate_dataset_fuel_litre_proxies_to_road_fuel,
+                calibrate_bus_fare_spending,
             )
 
             calibrate_dataset_fuel_litre_proxies_to_road_fuel(frs_calibrated)
+            calibrate_bus_fare_spending(
+                frs_calibrated,
+                frs_release.calibration_year,
+            )
             update_dataset("Calibrate fuel litres", "completed")
 
             update_dataset("Save final dataset", "processing")
@@ -339,7 +394,8 @@ def main():
                 "enhanced_dataset": frs_release.enhanced_dataset_file,
                 "tiny_base_dataset": frs_release.tiny_base_dataset_file,
                 "tiny_enhanced_dataset": frs_release.tiny_enhanced_dataset_file,
-                "imputations_applied": "consumption, wealth, VAT, services, income, capital_gains, salary_sacrifice, student_loan_plan",
+                "long_geography_weights": "local_geography_weights.csv.gz",
+                "imputations_applied": "consumption, wealth, VAT, services, income, capital_gains, cgt_band_donors, salary_sacrifice, student_loan_plan",
                 "calibration": "national, LA and  constituency targets",
             },
         )
